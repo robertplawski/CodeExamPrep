@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base {
+  html {
+    font-family: "Lato";
+  }
+}
+
+:root {
+  overflow: hidden;
+}
+td,
+th {
+  padding: 0.25rem;
+  padding-inline: 0.5rem;
+  border: 1px solid gray;
+}
+tr > th {
+  background-color: white;
+}
+tr:nth-of-type(odd) {
+  background-color: #eaeaea;
+}
+tr:nth-of-type(even) {
+  background-color: white;
+}
+.monaco-editor {
+  position: absolute !important;
+}
+
+.fadeIn {
+  opacity: 0;
+  animation: 0.2s fadeIn ease-in forwards;
+}
+
+.fadeOut {
+  opacity: 1;
+  animation: 0.2s fadeOut ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+
+    transform: translate(-20px, 0);
+  }
+  to {
+    transform: translate(0px, 0px);
+
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translate(0px, 0px);
+  }
+  to {
+    transform: translate(-20px, 0);
+    opacity: 0;
+  }
+}
+.fade-appear,
+.fade-enter {
+  opacity: 0;
+  z-index: 1;
+}
+.fade-appear-active,
+.fade-enter.fade-enter-active {
+  opacity: 1;
+  transition: opacity 450ms linear 250ms;
+}
+.fade-exit {
+  opacity: 1;
+}
+.fade-exit.fade-exit-active {
+  opacity: 0;
+  transition: opacity 150ms linear;
+}
