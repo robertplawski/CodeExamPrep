@@ -2,10 +2,6 @@ import { File } from "./file.model.js";
 import mongoose from "mongoose";
 export const solutionSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: true,
-    },
     task: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Task",

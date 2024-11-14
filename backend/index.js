@@ -7,6 +7,7 @@ import authRoutes from "./routes/auth.route.js";
 import contentRoutes from "./routes/content.route.js";
 import cookieParser from "cookie-parser";
 import uploadsRoutes from "./routes/uploads.route.js";
+import solutionsRoutes from "./routes/solution.route.js";
 dotenv.config();
 
 const app = express();
@@ -14,6 +15,7 @@ const PORT = process.env.PORT || 5000;
 app.use(
   cors({
     origin: [
+      "http://192.168.1.172",
       "http://192.168.1.172:5173",
       "http://192.168.1.172:5000",
       "https://cep.robertplawski.pl",
@@ -33,6 +35,8 @@ app.get("/api/ping", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/content", contentRoutes);
 app.use("/api/uploads", uploadsRoutes);
+app.use("/api/solutions", solutionsRoutes);
+
 app.listen(PORT, () => {
   connectDB();
   console.log("Server listening on port: ", PORT);

@@ -1,5 +1,6 @@
 import { Container } from "../components/Container";
 import Editor from "@monaco-editor/react";
+import * as monaco from "monaco-editor";
 import { createPortal } from "react-dom";
 import {
   createContext,
@@ -15,7 +16,16 @@ import { PopupContext } from "../contexts/PopupContext";
 import { useNavigate, useParams } from "react-router";
 import { RxCross1, RxCross2, RxPlus } from "react-icons/rx";
 import { Button } from "../components/Button";
-import { FaArrowsAlt, FaLock, FaTrophy, FaUnlock } from "react-icons/fa";
+import {
+  FaArrowsAlt,
+  FaLock,
+  FaMinus,
+  FaPlus,
+  FaSpinner,
+  FaTrash,
+  FaTrophy,
+  FaUnlock,
+} from "react-icons/fa";
 import { FaX } from "react-icons/fa6";
 import { createSwapy } from "swapy";
 import { twMerge } from "tw-merge";
@@ -46,7 +56,7 @@ const Tab = ({ children, onClick, currentIndex, index }) => {
     <button
       onClick={onClick}
       className={twMerge(
-        `bg-white cursor-pointer text-sm border-[1px] border-b-0  border-neutral-400 p-1 flex gap-2 items-center rounded-t-lg ${
+        `transition-all bg-white cursor-pointer translate-y-[0.15rem] text-sm border-[1px] border-b-0  border-neutral-400 p-1 flex gap-2 items-center rounded-t-lg ${
           currentIndex != index && "translate-y-[0.3rem] bg-neutral-100"
         }`
       )}
@@ -77,11 +87,77 @@ const getFileMetadata = async (id) => {
   const data = await req.json();
   return data;
 };
+const getTextDownload = async (id) => {
+  const req = await fetch(
+    import.meta.env.VITE_API_URI + `uploads/${id}/download`,
+    {
+      credentials: "include",
+      method: "GET",
+    }
+  );
+  const data = await req.text();
+  return data;
+};
+const CreateFileTab = () => {
+  const [result, setResult] = useState(null);
+  const { createNewSolutionFile, refetchSolution } = useContext(TaskContext);
+  const [canEnterFilename, setEnterFilename] = useState(false);
+  const [filename, setFilename] = useState("index.html");
+  return !canEnterFilename ? (
+    <Tab onClick={() => setEnterFilename(true)}>
+      <FaPlus size={16} />
+    </Tab>
+  ) : (
+    <Tab>
+      <button
+        onClick={() => {
+          setEnterFilename(false);
+          setResult(null);
+        }}
+      >
+        <FaTrash size={16} />
+      </button>
+      {!result ? (
+        <input
+          value={filename}
+          onChange={(e) => {
+            setFilename(e.target.value);
+          }}
+          placeholder="nazwa"
+          className="px-1 min-w-[0rem] w-[8rem] bg-neutral-200 font-inherit border-[0.05rem] border-neutral-400 rounded-md"
+        />
+      ) : (
+        <p>{result.message}</p>
+      )}
+      {(!result || result.success) && (
+        <button
+          onClick={() => {
+            createNewSolutionFile(filename).then((sol) => {
+              setResult(sol);
+              if (!sol.success) {
+                setTimeout(() => setResult(null), 1000);
+              } else {
+                setEnterFilename(false);
+                setFilename(null);
+                setResult(null);
+                refetchSolution();
+              }
+            });
+          }}
+        >
+          <FaPlus size={16} />
+        </button>
+      )}
+    </Tab>
+  );
+};
+
 export const TabsContainer = ({
   setIndex,
   windowName,
   index,
   children,
+  canEdit,
   files,
 }) => {
   const [metadata, setMetadata] = useState([]);
@@ -97,9 +173,9 @@ export const TabsContainer = ({
       );
     };
     fetch();
-  }, []);
+  }, [files, setMetadata]);
   return (
-    <div className="rounded-t-lg flex  bg-neutral-200  flex-row p-1 border-b-[1px] overflow-x-scroll border-neutral-400 gap-1 ">
+    <div className="scrollbar scrollbar-track-neutral-400 text-nowrap scrollbar-h-1 overflow-hidden rounded-t-lg flex  bg-neutral-200  flex-row p-1 border-b-[1px] overflow-x-scroll border-neutral-400 gap-1 ">
       {metadata &&
         metadata.map((child, i) => (
           <Tab
@@ -111,6 +187,7 @@ export const TabsContainer = ({
             {child.filename}
           </Tab>
         ))}
+      {canEdit && <CreateFileTab />}
       <div className="text-right justify-end flex-1 items-end flex ">
         <div className="bg-white flex-row gap-3 flex items-center text-black p-[0.25rem] rounded-lg font-bold">
           <p>&lt; {windowName} &gt;</p>
@@ -178,27 +255,146 @@ const WindowContainer = ({ className, children, dataSwapyItem }) => {
         defaultValue="<body>Test</body>"
       />*/
 
-const EditorWindow = ({ dataSwapyItem }) => {
+const EditorWindow = ({ dataSwapyItem, pleaseRerender }) => {
+  const [index, setIndex] = useState(0);
+  const editorRef = useRef(null);
+  const { solution } = useContext(TaskContext);
+
+  const { files } = solution;
+  //const files = ["6727bbb0cafac7b7a71623da"];
+
+  const [text, setText] = useState("");
+
+  const monacoOptions = {
+    language: "html",
+    value: text,
+    options: {
+      automaticLayout: true,
+    },
+  };
+
+  useEffect(() => {
+    getTextDownload(files[index]).then(async (txt) => {
+      setText(txt);
+    });
+  }, []);
+  useEffect(() => {
+    if (!editorRef.current) {
+      return;
+    }
+    getTextDownload(files[index]).then(async (txt) => {
+      setText(txt);
+      const data = await getFileMetadata(files[index]);
+
+      console.log(txt, data);
+      const extension = data.filename.split(".")[1].replace("js", "javascript");
+
+      const uri = import.meta.env.VITE_API_URI + "uploads/" + files[index];
+      //alert(uri);
+      //console.log(monaco.editor.getModel(uri), uri);
+      editorRef.current.setValue(txt);
+      monaco.editor.setModelLanguage(editorRef.current.getModel(), extension);
+      return () => {};
+    });
+  }, [index, files, editorRef]);
+
+  useEffect(() => {
+    if (!editorRef.current) {
+      return;
+    }
+
+    editorRef.current.dispose();
+    editorRef.current = monaco.editor.create(
+      document.querySelector("#editor"),
+      { ...monacoOptions, text }
+    );
+
+    const emmetDispose = emmetHTML(monaco);
+    return () => {
+      emmetDispose();
+      editorRef.current.dispose();
+    };
+  }, [pleaseRerender]);
+  function handleEditorDidMount(editor, monaco) {
+    editorRef.current = editor;
+    emmetHTML(monaco);
+  }
+  /*useEffect(() => {
+    const editor = monaco.editor.create(document.querySelector("#editor"), {
+      language: "html",
+      value: "<p>Hello!</p>",
+      options: {
+        automaticLayout: true,
+      },
+    });
+
+    const dispose = emmetHTML(monaco);
+    return () => {
+      //console.log(`DELETED ${monaco.editor.getEditors().length} EDITOR`);
+      monaco.editor.getModels().forEach((model) => model.dispose());
+      monaco.editor.getEditors().forEach((editor) => editor.dispose());
+      editor.dispose();
+      dispose();
+    };
+  }, [getItemById(dataSwapyItem)]);*/
+  /*useEffect(() => {
+    if (!window.editor) {
+      //monaco.editor.getEditors().length == 0
+
+      window.editor = 
+    }
+    return () => {
+      //alert(JSON.stringify(monaco.editor.getEditors()[0].getValue()));
+      window.editor.dispose();
+      window.editor = null;
+      //monaco.editor.getEditors().forEach((editor) => editor.dispose());
+    };
+  }, [getItemById(dataSwapyItem), window.editor]);*/
   return (
     <>
       <WindowContainer dataSwapyItem={dataSwapyItem}>
-        <TabsContainer windowName="edytor" />
-        <Container className="flex-1 items-stretch flex flex-col max-w-[100%] p-0 overflow-scroll  flex-1">
-          <div id="monaco-portal"></div>
-
+        <TabsContainer
+          index={index}
+          setIndex={setIndex}
+          windowName="edytor"
+          files={files}
+          canEdit={true}
+        />
+        <Container className="rounded-t-[0] flex-1 items-stretch flex flex-col max-w-[100%] p-0 overflow-scroll  flex-1">
           <Editor
-            beforeMount={(monaco) => {
-              emmetHTML(monaco);
-            }}
-            defaultLanguage="html"
-            value="<p>Hello!</p>"
-            options={{
-              automaticLayout: true,
-            }}
-            className=" flex-1 h-full w-full flex items-stretch justify-stretch"
+            {...monacoOptions}
+            className=""
+            onMount={handleEditorDidMount}
+            automaticLayout={true}
           />
+
+          <div
+            id="editor"
+            className=" flex-1 h-full w-full flex items-stretch justify-stretch"
+          ></div>
         </Container>
       </WindowContainer>
+    </>
+  );
+};
+
+const CustomFrame = ({ src }) => {
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    setLoading(true);
+  }, [src]);
+  return (
+    <>
+      {loading && (
+        <FaSpinner className="animate-spin absolute top-[50%] left-[50%]" />
+      )}
+      <iframe
+        className={twMerge(
+          `flex-1 h-full flex justify-center ${loading && "opacity-0"}`
+        )}
+        onLoad={() => setLoading(false)}
+        src={src}
+      ></iframe>
     </>
   );
 };
@@ -215,8 +411,8 @@ const TaskWindow = ({ dataSwapyItem }) => {
         windowName={"zadanie"}
         files={files}
       />
-      <Container className="flex-1 max-w-[100%] p-0 overflow-scroll  flex-1">
-        <iframe
+      <Container className="rounded-t-[0] relative flex-1 items-stretch justify-stretch max-w-[100%] p-0  flex-1">
+        <CustomFrame
           src={`${import.meta.env.VITE_API_URI}uploads/${
             task.files[index]
           }/download`}
@@ -230,9 +426,9 @@ const SolutionWindow = ({ dataSwapyItem }) => {
   return (
     <WindowContainer dataSwapyItem={dataSwapyItem}>
       <TabsContainer windowName="wynik" />
-      <Container className="flex-1 p-0 max-w-[100%] flex">
+      <Container className="rounded-t-[0] flex-1 p-0 max-w-[100%] flex">
         <iframe
-          className="w-full h-full flex-1 rounded-xl overflow-scroll flex-1"
+          className="w-full h-full flex-1 rounded-xl flex-1"
           src={
             import.meta.env.VITE_API_URI +
             `preview-solution/?id=solution_id_here&filename=index.html`
@@ -256,9 +452,9 @@ const DEFAULT = {
 var slotWindows = localStorage.getItem("slotItem")
   ? JSON.parse(localStorage.getItem("slotItem"))
   : DEFAULT;
-function getItemById(itemId) {
+function getItemById(itemId, pleaseRerender) {
   if (itemId == "a") {
-    return <EditorWindow dataSwapyItem="a" />;
+    return <EditorWindow dataSwapyItem="a" pleaseRerender={pleaseRerender} />;
   }
   if (itemId == "b") {
     return <TaskWindow dataSwapyItem="b" />;
@@ -267,10 +463,10 @@ function getItemById(itemId) {
     return <SolutionWindow dataSwapyItem="c" />;
   }
 }
-const SwapySlot = ({ id, className }) => {
+const SwapySlot = ({ id, className, pleaseRerender }) => {
   return (
     <div data-swapy-slot={id} className={twMerge(`${className || ""}`)}>
-      {getItemById(slotWindows[id])}
+      {getItemById(slotWindows[id], pleaseRerender)}
     </div>
   );
 };
@@ -283,6 +479,7 @@ export const TaskEditor = () => {
   const [canEditLayout, setCanEditLayout] = useState(false);
   const navigate = useNavigate();
 
+  const [pleaseRerender, forceRerender] = useReducer((x) => x + 1, 1);
   useEffect(() => {
     if (canEditLayout) {
       const container = document.querySelector(".swapy");
@@ -294,6 +491,12 @@ export const TaskEditor = () => {
       });
       swapy.onSwapEnd(({ data, hasChanged }) => {
         console.log(hasChanged);
+        setTimeout(() => setCanEditLayout(false), 300);
+        setTimeout(() => {
+          setCanEditLayout(true);
+          forceRerender();
+        }, 301);
+
         console.log("end", data);
         /*editor.layout({ width: 0, height: 0 });
         window.requestAnimationFrame(() => {
@@ -324,11 +527,11 @@ export const TaskEditor = () => {
         showPopup(<Login />, close);
       }
     }
-  }, [isWaiting, me]);
+  }, [isWaiting, me, setShowContent]);
   const [isDomReady, setDomReady] = useState(false);
   useEffect(() => {
     setDomReady(true);
-  }, []);
+  }, [setDomReady]);
 
   const { task } = useContext(TaskContext);
   return (
@@ -355,12 +558,28 @@ export const TaskEditor = () => {
         </Button>
       </Header>
       {
-        <div className="flex swapy flex-col sm:flex-row w-full gap-2 flex-1 flex-wrap">
+        <div
+          className={`flex swapy flex-col sm:flex-row w-full gap-2 flex-1 flex-wrap transition-colors ${
+            canEditLayout ? "cursor-grab " : ""
+          }`}
+        >
           <div className="flex-wrap flex flex-row gap-2 p-0 flex-1 overflow-hidden">
-            <SwapySlot className="flex-1" id={"a"} />
+            <SwapySlot
+              className="flex-1"
+              id={"a"}
+              pleaseRerender={pleaseRerender}
+            />
             <div className="flex flex-col flex-1 gap-2">
-              <SwapySlot className="flex-1" id={"b"} />
-              <SwapySlot className="flex-1" id={"c"} />
+              <SwapySlot
+                className="flex-1"
+                id={"b"}
+                pleaseRerender={pleaseRerender}
+              />
+              <SwapySlot
+                className="flex-1"
+                id={"c"}
+                pleaseRerender={pleaseRerender}
+              />
             </div>
           </div>
         </div>

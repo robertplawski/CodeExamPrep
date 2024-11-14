@@ -6,5 +6,5 @@ export default {
     "./src/*.{js,ts,jsx,tsx}",
   ],
   theme: {},
-  plugins: [require("tailwind-scrollbar")],
+  plugins: [require("tailwind-scrollbar")({ nocompatible: true })],
 };

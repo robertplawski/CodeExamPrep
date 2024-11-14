@@ -89,7 +89,14 @@ export const registerWithInviteToken = async (req, res) => {
     });
     if (!inviteValid) {
       throw new Error("Invite is invalid");
-    }
+    }   let userSolution = await Solution.findOne({ author: userId, task: taskId })
+    ._doc;
+  if (!userSolution) {
+    return res.status(400).json({
+      success: false,
+      message: "No solution found! Try creating one",
+    });
+  }
     //}
     const userAlreadyExists = await User.findOne({ email });
     if (userAlreadyExists) {

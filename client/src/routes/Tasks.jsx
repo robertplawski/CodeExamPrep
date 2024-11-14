@@ -12,6 +12,7 @@ import { Leaderboard } from "./Leaderboard";
 import { PopupContext } from "../contexts/PopupContext";
 export const TaskRow = ({ name, title, language, yourScore, averageScore }) => {
   const { me, isWaiting } = useContext(AuthContext);
+  console.log(yourScore);
   return (
     <tr>
       <td>

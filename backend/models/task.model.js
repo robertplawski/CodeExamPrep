@@ -25,7 +25,7 @@ export const taskSchema = new mongoose.Schema(
     allowedSolutionFilenames: {
       type: [String],
       required: true,
-      default:['index.html']
+      default: ["index.html"],
     },
     files: [
       {

@@ -4,26 +4,33 @@ import {
   getAuthorizationToken,
   isAuthorizationTokenValid,
 } from "../utils/cookies.js";
+import mongoose from "mongoose";
 
 export const getTasks = async (req, res) => {
   let userSolution = undefined;
   if (isAuthorizationTokenValid(getAuthorizationToken(req))) {
     let userId = isAuthorizationTokenValid(getAuthorizationToken(req));
 
-    userSolution = await Solution.findOne({ author: userId })._doc;
+    userSolution = await Solution.findOne({
+      author: new mongoose.Types.ObjectId(userId),
+    });
   }
 
-  let tasks = await Task.find().populate("solutions", {
-    strictPopulate: false,
-  });
+  let tasks = await Task.find().populate("solutions");
+
   tasks = tasks.map((task) => {
     const averageScore =
       task.solutions.reduce((total, next) => total + next.age, 0) /
         task.solutions.length || 0;
 
-    return { ...task._doc, averageScore, yourScore: userSolution?.score || -1 };
+    return {
+      ...task._doc,
+      averageScore: averageScore || 0,
+      yourScore: userSolution?.score,
+    };
   });
 
+  // res.setHeader("Cache-Control", `max-age=${60}`);
   res.status(200).json({
     success: true,
     message: "Got tasks",
@@ -40,9 +47,11 @@ export const findTask = async (req, res) => {
     if (!task) {
       throw new Error("Zadanie nieznalezione!");
     }
-    return res
-      .status(200)
-      .json({ success: true, message: "Succesfully got task", task });
+    return res.status(200).json({
+      success: true,
+      message: "Succesfully got task and solution",
+      task,
+    });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
